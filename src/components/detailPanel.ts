@@ -42,7 +42,7 @@ export class DetailPanel {
 
   open(e: Entity, allEntities: Entity[]): void {
     this.titleEl.textContent = e.title;
-    this.bodyEl.innerHTML = this.render(e);
+    this.bodyEl.innerHTML = this.render(e, allEntities);
     this.bodyEl.scrollTop = 0;
     this.el.classList.add('open');
     this.scrim.classList.add('open');
@@ -66,10 +66,12 @@ export class DetailPanel {
     }
   }
 
-  private render(e: Entity): string {
+  private render(e: Entity, allEntities: Entity[]): string {
     const colour = portfolioColour(e.portfolio);
+    const parent = e.parentOrg ? allEntities.find((x) => x.title === e.parentOrg) : undefined;
+    const children = allEntities.filter((x) => x.parentOrg === e.title && x.id !== e.id);
     const siblings = (this.deps.byPortfolio.get(e.portfolio) || [])
-      .filter((s) => s.id !== e.id)
+      .filter((s) => s.id !== e.id && s.id !== parent?.id && !children.some((c) => c.id === s.id))
       .slice(0, 8);
 
     const fields: Array<[string, string]> = [];
@@ -82,7 +84,12 @@ export class DetailPanel {
     if (e.function) fields.push(['Function (GFS)', escapeHtml(e.function)]);
     if (e.establishedBy) fields.push(['Established by', `${escapeHtml(e.establishedBy)}${e.establishedInfo ? ` — ${escapeHtml(e.establishedInfo)}` : ''}`]);
     if (e.created) fields.push(['Created', formatDate(e.created)]);
-    if (e.parentOrg) fields.push([glossaryTerm('parent-organisation', 'Parent'), escapeHtml(e.parentOrg)]);
+    if (e.parentOrg) {
+      const parentVal = parent
+        ? `<button type="button" class="sibling-link" data-id="${escapeHtml(parent.id)}" style="text-align:left;background:none;border:none;padding:0;color:var(--accent-navy);text-decoration:underline;text-decoration-color:var(--accent-gold);cursor:pointer;font-size:inherit;">${escapeHtml(e.parentOrg)}</button>`
+        : escapeHtml(e.parentOrg);
+      fields.push([glossaryTerm('parent-organisation', 'Parent'), parentVal]);
+    }
     if (e.auditor) fields.push([glossaryTerm('anao', 'Auditor'), escapeHtml(e.auditor)]);
     if (e.abn) fields.push([glossaryTerm('abn', 'ABN'), escapeHtml(formatAbn(e.abn))]);
     if (e.suburb || e.state) fields.push(['Head office', escapeHtml([e.streetAddress, e.suburb, e.state, e.postcode].filter(Boolean).join(', '))]);
@@ -96,14 +103,15 @@ export class DetailPanel {
     if (e.materiality === 'Material') pills.push(`<span class="pill material">Material</span>`);
     if (e.materiality === 'Small') pills.push(`<span class="pill small">Small</span>`);
 
-    const siblingHtml = siblings.length
-      ? `<div class="card" style="margin-top:1rem;background:var(--bg-elevated);">
-           <strong style="font-size:var(--font-size-sm);color:var(--accent-navy);">Others in this portfolio</strong>
-           <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
-             ${siblings.map((s) => `<button type="button" class="sibling-link" data-id="${escapeHtml(s.id)}" style="text-align:left;background:none;border:none;color:var(--accent-navy);text-decoration:underline;text-decoration-color:var(--accent-gold);font-size:var(--font-size-sm);padding:2px 0;cursor:pointer;">${escapeHtml(s.title)}</button>`).join('')}
-           </div>
-         </div>`
-      : '';
+    const linkCard = (title: string, list: Entity[]): string =>
+      list.length
+        ? `<div class="card" style="margin-top:1rem;background:var(--bg-elevated);">
+             <strong style="font-size:var(--font-size-sm);color:var(--accent-navy);">${title}</strong>
+             <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
+               ${list.map((s) => `<button type="button" class="sibling-link" data-id="${escapeHtml(s.id)}" style="text-align:left;background:none;border:none;color:var(--accent-navy);text-decoration:underline;text-decoration-color:var(--accent-gold);font-size:var(--font-size-sm);padding:2px 0;cursor:pointer;">${escapeHtml(s.title)}</button>`).join('')}
+             </div>
+           </div>`
+        : '';
 
     return `
       ${pills.length ? `<div class="pills">${pills.join('')}</div>` : ''}
@@ -111,7 +119,8 @@ export class DetailPanel {
       <div>
         ${fields.map(([k, v]) => `<div class="field"><div class="label">${k}</div><div class="value">${v}</div></div>`).join('')}
       </div>
-      ${siblingHtml}
+      ${linkCard(`Bodies within (${children.length})`, children.slice(0, 20))}
+      ${linkCard('Others in this portfolio', siblings)}
     `;
   }
 }

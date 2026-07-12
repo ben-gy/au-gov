@@ -22,6 +22,14 @@ export interface ForceOptions {
   gravity?: number;
   /** Hard wall-clock cap, ms. */
   timeBudgetMs?: number;
+  /**
+   * Clamp node coords into [r, w-r] each iteration (default true). Set false to
+   * let the layout breathe — hard clamping pins overflow nodes into straight
+   * lines along the canvas edges (a "picture frame" artifact); callers that fit
+   * the viewBox to the settled extent afterwards should disable it. Gravity +
+   * cooling keep the unclamped layout bounded.
+   */
+  clamp?: boolean;
 }
 
 export interface ForceResult { iterations: number; elapsedMs: number; maxDelta: number }
@@ -48,6 +56,7 @@ export function forceLayout(nodes: SimNode[], links: SimLink[], opts: ForceOptio
   const linkStrength = opts.linkStrength ?? 0.5;
   const gravity = opts.gravity ?? 0.03;
   const timeBudgetMs = opts.timeBudgetMs ?? 900;
+  const clamp = opts.clamp ?? true;
 
   const t0 = now();
   if (n === 0) return { iterations: 0, elapsedMs: 0, maxDelta: 0 };
@@ -150,8 +159,10 @@ export function forceLayout(nodes: SimNode[], links: SimLink[], opts: ForceOptio
         const moved = Math.sqrt(mx * mx + my * my);
         if (moved > maxDelta) maxDelta = moved;
       }
-      node.x = Math.max(node.r, Math.min(w - node.r, node.x));
-      node.y = Math.max(node.r, Math.min(h - node.r, node.y));
+      if (clamp) {
+        node.x = Math.max(node.r, Math.min(w - node.r, node.x));
+        node.y = Math.max(node.r, Math.min(h - node.r, node.y));
+      }
     }
     temp *= 0.97;
 

@@ -83,7 +83,7 @@ export function renderMatrix(root: HTMLElement, ctx: Ctx): void {
     }).join('');
     tbody.insertAdjacentHTML('beforeend', `
       <tr>
-        <th class="portfolio-header"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${colour};margin-right:6px;"></span>${escapeHtml(portfolioShort(p))}</th>
+        <th class="portfolio-header row-head" data-p="${escapeHtml(p)}" data-tip="${escapeHtml(`${p}: ${total} ${total === 1 ? 'body' : 'bodies'} — click to list them`)}" style="cursor:pointer;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${colour};margin-right:6px;"></span>${escapeHtml(portfolioShort(p))}</th>
         ${cells}
         <td><strong>${total}</strong></td>
       </tr>
@@ -109,6 +109,14 @@ export function renderMatrix(root: HTMLElement, ctx: Ctx): void {
       } else if (matches.length > 1) {
         window.dispatchEvent(new CustomEvent('au-gov-filter-table', { detail: { portfolio, type } }));
       }
+    });
+  });
+
+  // Row header → filter the table to that whole portfolio.
+  table.querySelectorAll<HTMLTableCellElement>('th.row-head').forEach((th) => {
+    th.addEventListener('click', () => {
+      const portfolio = th.dataset.p;
+      if (portfolio) window.dispatchEvent(new CustomEvent('au-gov-filter-table', { detail: { portfolio } }));
     });
   });
 

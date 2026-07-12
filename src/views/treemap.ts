@@ -139,12 +139,18 @@ export function renderTreemap(root: HTMLElement, ctx: Ctx): void {
       rect.setAttribute('height', String(Math.max(0, c.h - (c.entity ? 1 : 0))));
       rect.setAttribute('fill', c.colour);
       const tipText = c.entity
-        ? `${c.label} — ${c.entity.materiality || 'Standard'} · ${c.entity.portfolio}`
-        : `${c.label} — ${c.bodies} ${c.bodies === 1 ? 'body' : 'bodies'} · ${Math.round((c.value / total) * 100)}% of weight`;
+        ? `${c.label} — ${c.entity.materiality || 'Standard'} · ${c.entity.portfolio} — click for details`
+        : `${c.label} — ${c.bodies} ${c.bodies === 1 ? 'body' : 'bodies'} · ${Math.round((c.value / total) * 100)}% of weight — click to list them`;
       rect.setAttribute('data-tip', tipText);
       rect.setAttribute('aria-label', tipText);
       if (c.entity) {
         rect.addEventListener('click', () => ctx.open(c.entity!));
+      } else {
+        // Portfolio block → filter the table to that portfolio.
+        rect.style.cursor = 'pointer';
+        rect.addEventListener('click', () => {
+          window.dispatchEvent(new CustomEvent('au-gov-filter-table', { detail: { portfolio: c.label } }));
+        });
       }
       svg.appendChild(rect);
 

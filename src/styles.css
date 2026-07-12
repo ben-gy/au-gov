@@ -498,8 +498,71 @@ input:focus-visible, select:focus-visible {
 }
 .net-link { stroke: var(--border-default); stroke-opacity: 0.5; transition: stroke var(--transition-fast), stroke-opacity var(--transition-fast); }
 .net-node { cursor: pointer; }
+.net-node circle { transition: opacity var(--transition-fast); }
 .net-link.hot { stroke: var(--accent-gold); stroke-opacity: 1; stroke-width: 1.5; }
 .net-focus .net-link:not(.hot) { stroke-opacity: 0.12; }
+
+/* Node labels (departments always; others when a portfolio is isolated). */
+.net-label {
+  fill: var(--text-secondary);
+  font-size: 9px;
+  font-family: var(--font-sans);
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: var(--bg-panel, #fff);
+  stroke-width: 2.5px;
+}
+.net-label.dept { fill: var(--accent-navy); font-size: 11px; font-weight: 600; }
+
+/* Selection: dim everything except the chosen body's tree. */
+.net-select-active .net-node:not(.in-sel) circle { opacity: 0.16; }
+.net-select-active .net-link:not(.in-sel) { stroke-opacity: 0.06; }
+.net-select-active .net-label { opacity: 0.16; }
+.net-select-active .net-node.in-sel .net-label,
+.net-select-active .in-sel .net-label { opacity: 1; }
+.net-link.in-sel { stroke: var(--accent-navy); stroke-opacity: 0.85; stroke-width: 1.6; }
+
+/* Segmented mode toggle. */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.seg-btn {
+  border: none;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  padding: 0.35rem 0.8rem;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.seg-btn + .seg-btn { border-left: 1px solid var(--border-default); }
+.seg-btn.active { background: var(--accent-navy); color: #fff; font-weight: 600; }
+
+/* In-canvas legend. */
+.net-legend {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: color-mix(in srgb, var(--bg-panel, #fff) 88%, transparent);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+.net-legend span { display: flex; align-items: center; gap: 6px; }
+.net-lg-dot { width: 12px; height: 12px; border-radius: 50%; background: #7b8aa8; flex-shrink: 0; }
+.net-lg-dot.dept { background: #7b8aa8; border: 2px solid #c89d4f; width: 14px; height: 14px; }
+.net-lg-dot.material { width: 13px; height: 13px; }
+.net-lg-dot.other { width: 8px; height: 8px; }
+.net-lg-note { color: var(--text-tertiary); margin-top: 2px; }
 
 .svg-zoom-controls {
   position: absolute;
