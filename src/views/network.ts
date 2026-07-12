@@ -1,6 +1,8 @@
 import type { Entity } from '../types';
 import { PORTFOLIOS, portfolioColour } from '../data/portfolios';
 import { escapeHtml } from '../utils/format';
+import { forceLayout, mulberry32, type SimLink } from '../utils/forceLayout';
+import { attachSvgZoom, type SvgZoomHandle } from '../utils/svgZoom';
 
 interface Ctx {
   entities: Entity[];
@@ -11,18 +13,17 @@ interface Node {
   id: string;
   title: string;
   portfolio: string;
+  typeOfBody: string | null;
   isDept: boolean;
   isMaterial: boolean;
   x: number;
   y: number;
-  vx: number;
-  vy: number;
   r: number;
   el?: SVGGElement;
 }
 interface Link {
-  source: Node;
-  target: Node;
+  source: number;
+  target: number;
   el?: SVGLineElement;
 }
 
@@ -31,7 +32,7 @@ export function renderNetwork(root: HTMLElement, ctx: Ctx): void {
     <div class="view-heading">
       <div>
         <h2>Relationship graph</h2>
-        <p class="sub">Edges connect each entity to its parent organisation. Departments of State and Material bodies are highlighted larger. Filter by portfolio to isolate a sub-tree. Built with a hand-rolled force simulation.</p>
+        <p class="sub">Edges connect each entity to its parent organisation. Departments of State and Material bodies are highlighted larger. Filter by portfolio to isolate a sub-tree. Scroll to zoom, drag to pan, hover a node for detail.</p>
       </div>
     </div>
     <div class="network-wrap">
@@ -56,14 +57,14 @@ export function renderNetwork(root: HTMLElement, ctx: Ctx): void {
   const materialCheckbox = root.querySelector<HTMLInputElement>('#net-material')!;
   const statsEl = root.querySelector<HTMLSpanElement>('#net-stats')!;
 
-  portfolioSelect.addEventListener('change', () => simulate());
-  materialCheckbox.addEventListener('change', () => simulate());
+  portfolioSelect.addEventListener('change', () => render());
+  materialCheckbox.addEventListener('change', () => render());
 
-  let stopFlag = false;
   let nodes: Node[] = [];
   let links: Link[] = [];
+  let zoom: SvgZoomHandle | null = null;
 
-  function buildGraph(): void {
+  function buildGraph(w: number, h: number): void {
     const portfolio = portfolioSelect.value;
     const materialOnly = materialCheckbox.checked;
     const filtered = ctx.entities.filter(
@@ -72,41 +73,49 @@ export function renderNetwork(root: HTMLElement, ctx: Ctx): void {
         (!materialOnly || e.materiality === 'Material' || e.isPortfolioDept),
     );
 
-    const w = host.clientWidth || 1200;
-    const h = host.clientHeight || 640;
+    // Deterministic clustered seeding: each portfolio gets an anchor on an
+    // ellipse; departments sit at the anchor, other bodies jitter around it.
+    // Starting near the final neighbourhood slashes iterations-to-settle.
+    const rand = mulberry32(42);
+    const portfolios = [...new Set(filtered.map((e) => e.portfolio))].sort();
+    const anchor = new Map<string, [number, number]>();
+    portfolios.forEach((p, i) => {
+      const angle = (2 * Math.PI * i) / Math.max(1, portfolios.length) - Math.PI / 2;
+      anchor.set(p, [w / 2 + Math.cos(angle) * w * 0.34, h / 2 + Math.sin(angle) * h * 0.34]);
+    });
+
+    nodes = filtered.map((e) => {
+      const [ax, ay] = anchor.get(e.portfolio) ?? [w / 2, h / 2];
+      return {
+        id: e.id,
+        title: e.title,
+        portfolio: e.portfolio,
+        typeOfBody: e.typeOfBody,
+        isDept: e.isPortfolioDept,
+        isMaterial: e.materiality === 'Material',
+        x: e.isPortfolioDept ? ax : ax + (rand() - 0.5) * 120,
+        y: e.isPortfolioDept ? ay : ay + (rand() - 0.5) * 120,
+        r: e.isPortfolioDept ? 8 : e.materiality === 'Material' ? 6 : 4,
+      };
+    });
 
     const byTitle = new Map(filtered.map((e) => [e.title, e]));
-
-    nodes = filtered.map((e) => ({
-      id: e.id,
-      title: e.title,
-      portfolio: e.portfolio,
-      isDept: e.isPortfolioDept,
-      isMaterial: e.materiality === 'Material',
-      x: w / 2 + (Math.random() - 0.5) * w * 0.8,
-      y: h / 2 + (Math.random() - 0.5) * h * 0.8,
-      vx: 0,
-      vy: 0,
-      r: e.isPortfolioDept ? 8 : e.materiality === 'Material' ? 6 : 4,
-    }));
-    const nodeById = new Map(nodes.map((n) => [n.id, n]));
-
+    const indexById = new Map(nodes.map((n, i) => [n.id, i]));
     links = [];
     for (const e of filtered) {
       if (!e.parentOrg) continue;
       const parent = byTitle.get(e.parentOrg);
       if (!parent) continue;
-      const src = nodeById.get(e.id);
-      const tgt = nodeById.get(parent.id);
-      if (src && tgt) links.push({ source: src, target: tgt });
+      const src = indexById.get(e.id);
+      const tgt = indexById.get(parent.id);
+      if (src != null && tgt != null) links.push({ source: src, target: tgt });
     }
 
     statsEl.textContent = `${nodes.length} nodes · ${links.length} edges`;
   }
 
-  function setupSvg(): void {
-    const w = host.clientWidth || 1200;
-    const h = host.clientHeight || 640;
+  function setupSvg(w: number, h: number): void {
+    zoom?.destroy();
     host.innerHTML = '';
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
@@ -121,110 +130,63 @@ export function renderNetwork(root: HTMLElement, ctx: Ctx): void {
     svg.appendChild(linkLayer);
     svg.appendChild(nodeLayer);
 
+    // Incident-edge lookup for hover highlighting.
+    const incident = new Map<number, Link[]>();
     links.forEach((l) => {
       const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       line.setAttribute('class', 'net-link');
+      line.setAttribute('x1', nodes[l.source].x.toFixed(1));
+      line.setAttribute('y1', nodes[l.source].y.toFixed(1));
+      line.setAttribute('x2', nodes[l.target].x.toFixed(1));
+      line.setAttribute('y2', nodes[l.target].y.toFixed(1));
       linkLayer.appendChild(line);
       l.el = line;
+      for (const idx of [l.source, l.target]) {
+        if (!incident.has(idx)) incident.set(idx, []);
+        incident.get(idx)!.push(l);
+      }
     });
-    nodes.forEach((n) => {
+
+    nodes.forEach((n, i) => {
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       g.setAttribute('class', 'net-node');
+      g.setAttribute('transform', `translate(${n.x.toFixed(1)},${n.y.toFixed(1)})`);
+      const tipText = `${n.title} — ${n.portfolio} · ${n.isDept ? 'Department of State' : n.typeOfBody?.replace(/^[A-Z]\.\s*/, '') || 'Body'}`;
+      g.setAttribute('data-tip', tipText);
+      g.setAttribute('aria-label', tipText);
       const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       c.setAttribute('r', String(n.r));
       c.setAttribute('fill', portfolioColour(n.portfolio));
       c.setAttribute('stroke', n.isDept ? '#c89d4f' : '#fff');
       c.setAttribute('stroke-width', n.isDept ? '2' : '1');
       g.appendChild(c);
-      const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-      title.textContent = `${n.title} — ${n.portfolio}`;
-      g.appendChild(title);
       g.addEventListener('click', () => {
         const ent = ctx.entities.find((e) => e.id === n.id);
         if (ent) ctx.open(ent);
       });
+      g.addEventListener('mouseenter', () => {
+        svg.classList.add('net-focus');
+        (incident.get(i) || []).forEach((l) => l.el?.classList.add('hot'));
+      });
+      g.addEventListener('mouseleave', () => {
+        svg.classList.remove('net-focus');
+        (incident.get(i) || []).forEach((l) => l.el?.classList.remove('hot'));
+      });
       nodeLayer.appendChild(g);
       n.el = g;
     });
+
+    zoom = attachSvgZoom(svg);
   }
 
-  function tick(): void {
+  function render(): void {
     const w = host.clientWidth || 1200;
     const h = host.clientHeight || 640;
-    const cx = w / 2;
-    const cy = h / 2;
-
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const a = nodes[i];
-        const b = nodes[j];
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
-        const distSq = dx * dx + dy * dy + 0.01;
-        const dist = Math.sqrt(distSq);
-        if (dist > 220) continue;
-        const force = 200 / distSq;
-        const fx = (dx / dist) * force;
-        const fy = (dy / dist) * force;
-        a.vx += fx; a.vy += fy;
-        b.vx -= fx; b.vy -= fy;
-      }
-    }
-    for (const l of links) {
-      const dx = l.target.x - l.source.x;
-      const dy = l.target.y - l.source.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) + 0.001;
-      const targetDist = 60;
-      const force = (dist - targetDist) * 0.04;
-      const fx = (dx / dist) * force;
-      const fy = (dy / dist) * force;
-      l.source.vx += fx; l.source.vy += fy;
-      l.target.vx -= fx; l.target.vy -= fy;
-    }
-    for (const n of nodes) {
-      n.vx += (cx - n.x) * 0.001;
-      n.vy += (cy - n.y) * 0.001;
-      n.vx *= 0.82;
-      n.vy *= 0.82;
-      n.x += n.vx;
-      n.y += n.vy;
-      n.x = Math.max(8, Math.min(w - 8, n.x));
-      n.y = Math.max(8, Math.min(h - 8, n.y));
-    }
-
-    nodes.forEach((n) => {
-      if (n.el) n.el.setAttribute('transform', `translate(${n.x.toFixed(1)},${n.y.toFixed(1)})`);
-    });
-    links.forEach((l) => {
-      if (l.el) {
-        l.el.setAttribute('x1', l.source.x.toFixed(1));
-        l.el.setAttribute('y1', l.source.y.toFixed(1));
-        l.el.setAttribute('x2', l.target.x.toFixed(1));
-        l.el.setAttribute('y2', l.target.y.toFixed(1));
-      }
-    });
+    buildGraph(w, h);
+    // Settle the layout fully BEFORE any DOM exists — the graph never moves on screen.
+    forceLayout(nodes, links as SimLink[], { width: w, height: h });
+    setupSvg(w, h);
   }
 
-  function simulate(): void {
-    stopFlag = true;
-    // Build immediately so at least a static graph is present even in
-    // environments where requestAnimationFrame is throttled (0×0 preview).
-    stopFlag = false;
-    buildGraph();
-    setupSvg();
-    // Run some initial ticks synchronously so the layout has a chance to
-    // settle even before RAF gets a chance to fire.
-    for (let i = 0; i < 30; i++) tick();
-    // Then continue with RAF for smooth animation.
-    let frame = 0;
-    const loop = () => {
-      if (stopFlag) return;
-      tick();
-      frame++;
-      if (frame < 320) requestAnimationFrame(loop);
-    };
-    requestAnimationFrame(loop);
-  }
-
-  simulate();
+  render();
 }

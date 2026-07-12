@@ -1,6 +1,6 @@
 import type { Entity } from '../types';
 import { PORTFOLIOS, portfolioColour } from '../data/portfolios';
-import { escapeHtml } from '../utils/format';
+import { escapeHtml, yearOf } from '../utils/format';
 import { glossaryTerm } from '../components/glossaryTip';
 
 interface Ctx {
@@ -60,7 +60,7 @@ export function renderTree(root: HTMLElement, ctx: Ctx): void {
             <h4>${escapeHtml(cls)} <span style="color:var(--accent-gold);font-weight:700;">·</span> ${items.length}</h4>
             <ul class="entities">
               ${items.slice().sort((a, b) => (a.isPortfolioDept === b.isPortfolioDept ? a.title.localeCompare(b.title) : a.isPortfolioDept ? -1 : 1)).map((e) => `
-                <li class="entity" data-id="${escapeHtml(e.id)}">
+                <li class="entity" data-id="${escapeHtml(e.id)}" data-tip="${escapeHtml(`${e.typeOfBody?.replace(/^[A-Z]\.\s*/, '') || 'Body'}${e.materiality ? ` · ${e.materiality}` : ''}${yearOf(e.created) ? ` · est. ${yearOf(e.created)}` : ''} — click for details`)}">
                   <div class="name">${escapeHtml(e.title)}${e.isPortfolioDept ? ' <span class="pill dept" style="font-size:9px;padding:0 6px;">Dept of State</span>' : ''}</div>
                   <div class="meta">
                     <span>${escapeHtml(e.typeOfBody || '—')}</span>

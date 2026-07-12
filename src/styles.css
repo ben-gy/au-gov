@@ -215,18 +215,6 @@ input:focus-visible, select:focus-visible {
   border-bottom-color: var(--accent-gold);
   font-weight: 600;
 }
-.tabs-bar .tab .badge {
-  background: var(--accent-navy-soft);
-  color: var(--accent-navy);
-  padding: 0.05rem 0.45rem;
-  border-radius: var(--radius-pill);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-}
-.tabs-bar .tab.active .badge {
-  background: var(--accent-gold);
-  color: var(--text-inverse);
-}
 
 .main-content {
   flex: 1 0 auto;
@@ -508,8 +496,50 @@ input:focus-visible, select:focus-visible {
   height: 640px;
   position: relative;
 }
-.net-link { stroke: var(--border-default); stroke-opacity: 0.5; }
+.net-link { stroke: var(--border-default); stroke-opacity: 0.5; transition: stroke var(--transition-fast), stroke-opacity var(--transition-fast); }
 .net-node { cursor: pointer; }
+.net-link.hot { stroke: var(--accent-gold); stroke-opacity: 1; stroke-width: 1.5; }
+.net-focus .net-link:not(.hot) { stroke-opacity: 0.12; }
+
+.svg-zoom-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 10;
+}
+.svg-zoom-controls button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--bg-surface);
+  color: var(--accent-navy);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(22, 35, 83, 0.12);
+}
+.svg-zoom-controls button:hover { background: var(--bg-hover); }
+
+.hover-tip {
+  position: fixed;
+  z-index: 1000;
+  max-width: 300px;
+  background: var(--accent-navy);
+  color: #fff;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 100ms ease;
+  box-shadow: 0 4px 14px rgba(22, 35, 83, 0.3);
+}
+.hover-tip.visible { opacity: 1; }
 
 #map-canvas {
   height: 640px;

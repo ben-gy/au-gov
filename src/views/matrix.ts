@@ -65,7 +65,7 @@ export function renderMatrix(root: HTMLElement, ctx: Ctx): void {
   const thead = document.createElement('thead');
   const tr = document.createElement('tr');
   tr.innerHTML = `<th class="portfolio-header">Portfolio</th>` +
-    usedTypes.map((t) => `<th title="${escapeHtml(t)}">${typeCode(t)}</th>`).join('') +
+    usedTypes.map((t) => `<th data-tip="${escapeHtml(t)}">${typeCode(t)}</th>`).join('') +
     '<th>Total</th>';
   thead.appendChild(tr);
   table.appendChild(thead);
@@ -78,7 +78,8 @@ export function renderMatrix(root: HTMLElement, ctx: Ctx): void {
     const cells = usedTypes.map((t) => {
       const v = row.get(t) || 0;
       const alpha = v ? Math.min(0.9, 0.12 + (v / maxCell) * 0.75) : 0;
-      return `<td class="cell ${v ? '' : 'empty'}" data-p="${escapeHtml(p)}" data-t="${escapeHtml(t)}" style="background:${v ? rgba(colour, alpha) : 'transparent'};color:${v && alpha > 0.45 ? '#fff' : 'inherit'};">${v || ''}</td>`;
+      const tip = v ? ` data-tip="${escapeHtml(`${p} × ${t.replace(/^[A-Z]\.\s*/, '')}: ${v} ${v === 1 ? 'body' : 'bodies'} — click to filter`)}"` : '';
+      return `<td class="cell ${v ? '' : 'empty'}" data-p="${escapeHtml(p)}" data-t="${escapeHtml(t)}"${tip} style="background:${v ? rgba(colour, alpha) : 'transparent'};color:${v && alpha > 0.45 ? '#fff' : 'inherit'};">${v || ''}</td>`;
     }).join('');
     tbody.insertAdjacentHTML('beforeend', `
       <tr>

@@ -2,6 +2,7 @@ import type { Aggregate, Entity, ViewName } from './types';
 import { DetailPanel } from './components/detailPanel';
 import { AboutModal } from './components/aboutModal';
 import { installGlossary } from './components/glossaryTip';
+import { initTooltip } from './components/tooltip';
 import { renderTree } from './views/tree';
 import { renderCabinet } from './views/cabinet';
 import { renderTreemap } from './views/treemap';
@@ -12,21 +13,20 @@ import { renderTimeline } from './views/timeline';
 import { renderTable, type TablePreset } from './views/table';
 import { renderInsights } from './views/insights';
 
-const TABS: Array<{ id: ViewName; label: string; count?: (a: Aggregate, e: Entity[]) => number }> = [
-  { id: 'tree', label: 'Tree', count: (_a, e) => e.length },
+const TABS: Array<{ id: ViewName; label: string }> = [
+  { id: 'tree', label: 'Tree' },
   { id: 'cabinet', label: 'Cabinet' },
   { id: 'treemap', label: 'Treemap' },
   { id: 'matrix', label: 'Matrix' },
   { id: 'network', label: 'Network' },
   { id: 'map', label: 'Map' },
   { id: 'timeline', label: 'Timeline' },
-  { id: 'table', label: 'Table', count: (_a, e) => e.length },
+  { id: 'table', label: 'Table' },
   { id: 'insights', label: 'Insights' },
 ];
 
 export class App {
   private entities: Entity[] = [];
-  private aggregate: Aggregate | null = null;
   private byPortfolio = new Map<string, Entity[]>();
   private currentView: ViewName = 'tree';
   private tablePreset: TablePreset | undefined;
@@ -107,6 +107,7 @@ export class App {
     });
 
     installGlossary();
+    initTooltip();
 
     window.addEventListener('au-gov-filter-table', (ev) => {
       const detail = (ev as CustomEvent).detail || {};
@@ -124,7 +125,6 @@ export class App {
     if (!aggRes.ok) throw new Error(`aggregate.json ${aggRes.status}`);
     this.entities = await entRes.json();
     const aggregate: Aggregate = await aggRes.json();
-    this.aggregate = aggregate;
 
     this.byPortfolio.clear();
     for (const e of this.entities) {
@@ -165,8 +165,7 @@ export class App {
       btn.className = 'tab';
       btn.type = 'button';
       btn.dataset.view = tab.id;
-      const count = tab.count && this.aggregate ? tab.count(this.aggregate, this.entities) : null;
-      btn.innerHTML = `${tab.label}${count != null ? ` <span class="badge">${count.toLocaleString()}</span>` : ''}`;
+      btn.textContent = tab.label;
       btn.addEventListener('click', () => this.go(tab.id));
       this.tabsBar.appendChild(btn);
     });

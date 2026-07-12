@@ -11,7 +11,7 @@ interface Ctx {
 
 interface FeatureCollection {
   type: string;
-  features: Array<{ type: string; properties: { code: string }; geometry: { type: string; coordinates: number[][][] } }>;
+  features: Array<{ type: string; properties: { code: string; name: string }; geometry: unknown }>;
 }
 
 export async function renderMap(root: HTMLElement, ctx: Ctx): Promise<void> {
@@ -42,26 +42,62 @@ export async function renderMap(root: HTMLElement, ctx: Ctx): Promise<void> {
   const canvas = root.querySelector<HTMLDivElement>('#map-canvas')!;
 
   const map = L.map(canvas, {
-    center: [-26.0, 134.5],
-    zoom: 4,
     minZoom: 3,
     maxZoom: 9,
     scrollWheelZoom: true,
     zoomControl: true,
   });
-
+  map.attributionControl.setPrefix(false);
   map.getContainer().style.background = '#eef2f7';
+
+  const AUS_BOUNDS = L.latLngBounds([-44, 112], [-10, 154]);
+  map.fitBounds(AUS_BOUNDS, { padding: [8, 8] });
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+    attribution: 'Tiles © CARTO',
+    subdomains: 'abcd',
+    maxZoom: 9,
+    minZoom: 3,
+  }).addTo(map);
+
+  // Entities per state for the boundary hover tooltips.
+  const stateCounts = new Map<string, number>();
+  for (const e of ctx.entities) {
+    if (e.state) stateCounts.set(e.state, (stateCounts.get(e.state) || 0) + 1);
+  }
 
   const gjRes = await fetch('data/au-states.geojson');
   const gj = (await gjRes.json()) as FeatureCollection;
-  L.geoJSON(gj as unknown as GeoJSON.GeoJsonObject, {
+  const stateLayer = L.geoJSON(gj as unknown as GeoJSON.GeoJsonObject, {
+    attribution: 'Boundaries: ABS ASGS (CC BY 4.0)',
     style: () => ({
       color: '#162353',
       weight: 1.2,
       fillColor: '#fbfaf6',
-      fillOpacity: 1,
+      fillOpacity: 0.35,
     }),
+    onEachFeature: (f, lyr) => {
+      const props = (f as FeatureCollection['features'][number]).properties;
+      const n = stateCounts.get(props.code) || 0;
+      lyr.bindTooltip(
+        `<strong>${escapeHtml(props.name)}</strong><br>${n.toLocaleString()} ${n === 1 ? 'entity' : 'entities'} headquartered here`,
+        { sticky: true },
+      );
+      lyr.on({
+        mouseover: () => (lyr as L.Path).setStyle({ weight: 2.5 }),
+        mouseout: () => stateLayer.resetStyle(lyr as L.Path),
+      });
+    },
   }).addTo(map);
+
+  // Settle defence: Leaflet mis-sizes when created in a container that hasn't
+  // finished layout — re-measure once the DOM settles.
+  const settle = () => {
+    map.invalidateSize(false);
+    map.fitBounds(AUS_BOUNDS, { padding: [8, 8] });
+  };
+  requestAnimationFrame(settle);
+  setTimeout(settle, 300);
 
   const markerLayer = L.layerGroup().addTo(map);
 
@@ -107,6 +143,12 @@ export async function renderMap(root: HTMLElement, ctx: Ctx): Promise<void> {
         ${c.items.length <= 8 ? `<div style="margin-top:6px;border-top:1px solid #eee;padding-top:6px;display:flex;flex-direction:column;gap:2px;">${c.items.map((e) => `<a href="#id=${escapeHtml(e.id)}" class="popup-entity" data-id="${escapeHtml(e.id)}" style="font-size:11px;color:#162353;">${escapeHtml(e.title)}</a>`).join('')}</div>` : ''}
       `;
       marker.bindPopup(popupHtml);
+      marker.bindTooltip(
+        `${escapeHtml(c.suburb || c.state)}, ${escapeHtml(c.state)} — ${c.items.length} ${c.items.length === 1 ? 'entity' : 'entities'}`,
+        { direction: 'top', opacity: 0.95 },
+      );
+      marker.on('mouseover', () => marker.setStyle({ weight: 2.5 }));
+      marker.on('mouseout', () => marker.setStyle({ weight: 1 }));
       marker.on('popupopen', () => {
         document.querySelectorAll<HTMLAnchorElement>('.popup-entity').forEach((a) => {
           a.addEventListener('click', (ev) => {

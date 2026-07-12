@@ -115,9 +115,9 @@ export function renderTimeline(root: HTMLElement, ctx: Ctx): void {
         rect.setAttribute('width', String(bw));
         rect.setAttribute('height', String(segH));
         rect.setAttribute('fill', portfolioColour(p));
-        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-        title.textContent = `${k}${mode === 'decade' ? 's' : ''} · ${p}: ${n}`;
-        rect.appendChild(title);
+        const tipText = `${k}${mode === 'decade' ? 's' : ''} · ${p}: ${n} ${n === 1 ? 'entity' : 'entities'} — click to filter the table`;
+        rect.setAttribute('data-tip', tipText);
+        rect.setAttribute('aria-label', tipText);
         rect.addEventListener('click', () => {
           window.dispatchEvent(new CustomEvent('au-gov-filter-table', { detail: { portfolio: p, yearStart: mode === 'decade' ? k : k, yearEnd: mode === 'decade' ? k + 9 : k } }));
         });
