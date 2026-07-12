@@ -46,7 +46,7 @@ The only official browser is a slow, list-based ASP.NET app at directory.gov.au.
 - **Build:** Vite 6
 - **Testing:** Vitest
 - **Hosting:** GitHub Pages (static, no backend)
-- **Data:** GitHub Actions pipeline that fetches the latest AGOR CSV weekly and emits `public/data/entities.json` + `public/data/aggregate.json`
+- **Data:** GitHub Actions pipeline that fetches the latest AGOR CSV quarterly and emits `public/data/entities.json` + `public/data/aggregate.json`
 - **Map:** Leaflet with hand-authored simplified AU state polygons
 - **All other visualisations:** hand-rolled SVG (treemap uses a squarified algorithm; network uses a hand-rolled force simulation)
 
@@ -66,7 +66,7 @@ node pipeline/collect.mjs
 ## How it works
 
 1. The `pipeline/collect.mjs` script queries the data.gov.au CKAN API for the latest AGOR CSV resource, downloads it, parses it, normalises each row into a compact typed shape, and writes `public/data/entities.json` (1.8 MB, ~65 KB gzipped) and `public/data/aggregate.json`.
-2. A GitHub Actions workflow (`.github/workflows/data-pipeline.yml`) runs the pipeline weekly and commits any changes.
+2. A GitHub Actions workflow (`.github/workflows/data-pipeline.yml`) runs the pipeline quarterly (matching AGOR's release cadence) and commits any changes.
 3. The frontend fetches both JSON files on load, builds a portfolio → entities index, and renders whichever tab is active. Views share a portfolio colour scheme, a glossary tooltip system, and a slide-in detail panel keyed by URL hash.
 
 ## License

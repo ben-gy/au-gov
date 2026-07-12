@@ -1,7 +1,8 @@
 name: Data Pipeline
 on:
   schedule:
-    - cron: '17 6 15 2 *'
+    # Cadence: quarterly (AGOR register updates quarterly)
+    - cron: '17 6 15 1,4,7,10 *'
   workflow_dispatch:
   push:
     branches: [main]
