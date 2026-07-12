@@ -92,7 +92,7 @@ export class App {
         <div style="text-align:center;">
           <div class="meta">Sources: Department of Finance · directory.gov.au · PM&amp;C ministry list</div>
         </div>
-        <div class="attribution">Built by <a href="https://benrichardson.dev/">benrichardson.dev</a> · <a href="https://hub.benrichardson.dev" target="_blank" rel="noopener">more tools &amp; sites</a></div>
+        <div class="attribution">Built by <a href="https://benrichardson.dev/">benrichardson.dev</a> · <a href="https://sites.benrichardson.dev" target="_blank" rel="noopener">more tools &amp; sites</a></div>
       </div>
     `;
     this.host.appendChild(footer);
