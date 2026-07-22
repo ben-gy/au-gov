@@ -69,6 +69,17 @@ node pipeline/collect.mjs
 2. A GitHub Actions workflow (`.github/workflows/data-pipeline.yml`) runs the pipeline quarterly (matching AGOR's release cadence) and commits any changes.
 3. The frontend fetches both JSON files on load, builds a portfolio → entities index, and renders whichever tab is active. Views share a portfolio colour scheme, a glossary tooltip system, and a slide-in detail panel keyed by URL hash.
 
-## License
+## license
 
-MIT — data is Creative Commons Attribution 3.0 Australia via data.gov.au.
+[GNU Affero General Public License v3.0 or later](./LICENSE), with an attribution
+requirement added under section 7(b) — see
+[ADDITIONAL-TERMS.md](./ADDITIONAL-TERMS.md).
+
+In short: you may run, modify, redistribute and even sell this, but if you
+distribute it — or run a modified version where other people can reach it — you
+have to publish your source under the same licence and keep the attribution. A
+separate commercial licence without those obligations is available on request:
+<hi@ben.gy>.
+
+Third-party components keep their own licences — see
+[THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md).
